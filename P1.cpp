@@ -1,4 +1,4 @@
-#include ".\..\universal.hpp"
+#include ".\universal.hpp"
 struct film
 {
     long long int id;
@@ -25,12 +25,21 @@ void print_films(film *filmy, int size){
     }
     std::cout<<"\n";
 }
-void quicksort(film* filmy, int rozmiar){
-    film *pivot = &filmy[rozmiar/2];
-    film *i = filmy;
-    film *j = &filmy[rozmiar-1];
-    film ftmp;
-    //print_films(filmy, rozmiar);
+template<typename T>
+void quicksort(T* filmy, int rozmiar){
+    int tmptab[3] = {filmy[0].ocena-(filmy[rozmiar/2].ocena+filmy[rozmiar/2+1].ocena)/2, filmy[1].ocena-(filmy[rozmiar/2-1].ocena+filmy[rozmiar/2+1].ocena)/2, filmy[2].ocena-(filmy[rozmiar/2-1].ocena+filmy[rozmiar/2].ocena)/2};
+    int pp = rozmiar/2;
+    if(tmptab[0]<tmptab[1]&&tmptab[0]<tmptab[2]){
+        pp = rozmiar/2-1;
+    }
+    else if(tmptab[2]<tmptab[0]&&tmptab[2]<tmptab[1]){
+        pp = rozmiar/2+1;
+        
+    }
+    T *pivot = &filmy[rozmiar/2];
+    T *i = filmy;
+    T *j = &filmy[rozmiar-1];
+    T ftmp;
     if (rozmiar==2)
     {
         if (*i>*j){
@@ -39,7 +48,24 @@ void quicksort(film* filmy, int rozmiar){
             *j=ftmp;
         }
     }
-    if(rozmiar>2){
+    if(rozmiar==3){
+        if(*i>*j){
+            ftmp = *i;
+            *i = *j;
+            *j=ftmp;
+        }
+        if(*i>*pivot){
+            ftmp = *i;
+            *i = *pivot;
+            *pivot=ftmp;
+        }
+        if(*j<*pivot){
+            ftmp = *j;
+            *j = *pivot;
+            *pivot=ftmp;
+        }
+    }
+    if(rozmiar>3){
         while(i!=j){
             while(*i<*pivot&&i<pivot){
                 i++;
@@ -68,13 +94,12 @@ void quicksort(film* filmy, int rozmiar){
             }
 
         }
-        if(rozmiar>3){
-            quicksort(pivot, (pivot-filmy)/sizeof(film));
-            quicksort(filmy, rozmiar-((pivot-filmy)/sizeof(film))-1);
-        }
+        quicksort(filmy, (pivot-filmy));
+        quicksort(pivot+1, rozmiar-(pivot-filmy)-1);
     }
 }
 int main(int argc, char *argv[]){
+    std::srand(std::time(0));
     size = atoi(argv[1]);
     films = new film[size];
     std::ifstream plik("projekt1_dane.csv", std::ios::in);
@@ -83,7 +108,9 @@ int main(int argc, char *argv[]){
     film ftmp;
     std::getline(plik, record);
     for(int i=0;i<size;++i){
+        do{
         std::getline(plik, record);
+        }while(record[record.size()-1]!='0');
         std::stringstream strstr(record);
         std::getline(strstr, strtmp,',');
         if(strtmp[0]=='"'){
@@ -92,7 +119,7 @@ int main(int argc, char *argv[]){
         ftmp.id = std::stoll(strtmp);
         std::getline(strstr, ftmp.nazwa,',');
         std::getline(strstr, strtmp, ',');
-        while((strtmp[0]<48||strtmp[0]>57)){
+        while(strtmp[strtmp.size()-2]!='.'||strtmp[strtmp.size()-1]!='0'){
             ftmp.nazwa += ","+strtmp;
             std::getline(strstr, strtmp, ',');
         }
@@ -101,8 +128,8 @@ int main(int argc, char *argv[]){
     }
     print_films(films, size);
     tic
-    //quicksort(films, size);
+    quicksort(films, size);
     toc
-    //print_films(films, size);
+    print_films(films, size);
     std::cout<<time;
 }
