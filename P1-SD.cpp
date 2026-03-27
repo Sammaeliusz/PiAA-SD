@@ -1,11 +1,97 @@
-#include "universal.hpp"
+#include ".\..\universal.hpp"
 #include <typeinfo>
 #include <type_traits>
 template<typename T>
+struct dynamic_array
+{
+    T* start = (T*)malloc(sizeof(T)*10);
+    int size=10;
+    int capacity=0;
+};
+template<typename T>
+void push_back(dynamic_array<T>* a, T data){
+    if(a->capacity==a->size){
+        a->start = (T*)realloc(a->start, 2*a->size*sizeof(T));
+        a->size *=2;
+    }
+    *(a->start+a->capacity) = data;
+    a->capacity++;
+}
+template<typename T>
+void push_begin(dynamic_array<T>* a, T data){
+    if(a->capacity==a->size){
+        a->start = (T*)realloc(a->start, 2*a->size*sizeof(T));
+        a->size *= 2;
+    }
+    memcpy(a->start+1, a->start, a->capacity*sizeof(T));
+    *(a->start) = data;
+    a->capacity++;
+}
+template<typename T>
+void push_at(dynamic_array<T>* a, T data, int position){
+    if(a->capacity==a->size){
+        a->start = (T*)realloc(a->start, 2*a->size*sizeof(T));
+        a->size *= 2;
+    }
+    for(int i = a->capacity; i>position; i--){
+        *(a->start+i) =*(a->start+i-1);
+    }
+    *(a->start+position) = data;
+    a->capacity++;
+}
+template<typename T>
+T* pop_back(dynamic_array<T>* a){
+    if(a->size==0){
+        throw std::out_of_range("Array is empty");
+    }
+    T* data = a->start+a->capacity-1;
+    if(a->capacity+1==a->size/2){
+        a->start = (T*)reallock(a->start, sizeof(T)*a->size/2);
+        a->size /= 2;
+    }
+    a->capacity--;
+    return data;
+}
+template<typename T>
+T* pop_begin(dynamic_array<T>* a){
+    if(a->size==0){
+        throw std::out_of_range("Array is empty");
+    }
+    T* data = a->start;
+    a->start++;
+    if(a->capacity+1==a->size/2){
+        a->start = (T*)reallock(a->start, sizeof(T)*a->size/2);
+        a->size /= 2;
+    }
+    a->capacity--;
+    return data;
+}
+template <typename T>
+T* pop_at(dynamic_array<T>* a, int position){
+    if(a->size==0){
+        throw std::out_of_range("Array is empty");
+    }
+    T* data = a->start+position;
+    memcpy(a->start+position, a->start+position+1, (a->capacity-position)*sizeof(T));
+    if(a->capacity+1==a->size/2){
+        a->start = (T*)reallock(a->start, sizeof(T)*a->size/2);
+        a->size /= 2;
+    }
+    a->capacity--;
+    return data;
+}
+template<typename T>
+void print_list(dynamic_array<T>* array){
+    std::cout<<"size: "<<array->size<<" capacity: "<<array->capacity<<"\n";
+    for(int i=0; i<array->capacity; i++){
+        std::cout<<*(array->start+i)<<" ";
+    }
+}
+template<typename T>
 struct start{
     int size = 0;
-    T* first = nullptr;
-    T* last = nullptr;
+    T* first = new T;
+    T* last = first;
 };
 template<typename T>
 struct OW_Node{
@@ -52,7 +138,7 @@ void* element_at(start<OW_Node<U>>* list, int index){
     return &current->data;
 }
 template<typename U>
-void push_element(start<OW_Node<U>>* list, U data){
+void push_back(start<OW_Node<U>>* list, U data){
     if(list->size==0){
         list->first = new OW_Node<U>;
         list->first->data = data;
@@ -69,7 +155,7 @@ void push_element(start<OW_Node<U>>* list, U data){
     
 }
 template<typename U>
-void push_element_begin(start<OW_Node<U>>* list, U data){
+void push_begin(start<OW_Node<U>>* list, U data){
     OW_Node<U>* new_node = new OW_Node<U>;
     new_node->data = data;
     new_node->next = list->first;
@@ -77,7 +163,7 @@ void push_element_begin(start<OW_Node<U>>* list, U data){
     list->size++;
 }
 template<typename U>
-void push_element_at(start<OW_Node<U>>* list, int index, U data){
+void push_at(start<OW_Node<U>>* list, int index, U data){
     if(index>list->size){
         throw std::out_of_range("Index out of range");
     }
@@ -89,7 +175,7 @@ void push_element_at(start<OW_Node<U>>* list, int index, U data){
     ((OW_Node<U>*)current)->next = new_node;
 }
 template<typename U> 
-U pop_element(start<OW_Node<U>>* list){
+U pop_back(start<OW_Node<U>>* list){
     OW_Node<U>* current = list->last;
     OW_Node<U>* new_last = (OW_Node<U>*)element_at(list, list->size-1);
     list->last = (OW_Node<U>*)new_last;
@@ -100,7 +186,7 @@ U pop_element(start<OW_Node<U>>* list){
     return data;
 }
 template<typename U>
-U pop_element_begin(start<OW_Node<U>>* list){
+U pop_begin(start<OW_Node<U>>* list){
     OW_Node<U>* current = list->first;
     list->first = list->first->next;
     U data = current->data;
@@ -109,7 +195,7 @@ U pop_element_begin(start<OW_Node<U>>* list){
     return data;
 }
 template<typename U>
-U pop_element_at(start<OW_Node<U>>* list, int index){
+U pop_at(start<OW_Node<U>>* list, int index){
     if(index>=list->size){
         throw std::out_of_range("Index out of range");
     }
@@ -123,7 +209,7 @@ U pop_element_at(start<OW_Node<U>>* list, int index){
     return data;
 }
 template<typename U>
-void push_element(start<TW_Node<U>>* list, U data){
+void push_back(start<TW_Node<U>>* list, U data){
     if(list->size==0){
         list->first = new TW_Node<U>;
         list->first->data = data;
@@ -143,7 +229,7 @@ void push_element(start<TW_Node<U>>* list, U data){
     
 }
 template<typename U>
-void push_element_begin(start<TW_Node<U>>* list, U data){
+void push_begin(start<TW_Node<U>>* list, U data){
     TW_Node<U>* new_node = new TW_Node<U>;
     new_node->data = data;
     new_node->next = list->first;
@@ -153,7 +239,7 @@ void push_element_begin(start<TW_Node<U>>* list, U data){
     list->size++;
 }
 template<typename U>
-void push_element_at(start<TW_Node<U>>* list, int index, U data){
+void push_at(start<TW_Node<U>>* list, int index, U data){
     if(index>list->size){
         throw std::out_of_range("Index out of range");
     }
@@ -166,7 +252,7 @@ void push_element_at(start<TW_Node<U>>* list, int index, U data){
     current->prev = new_node;
 }
 template<typename U> 
-U pop_element(start<TW_Node<U>>* list){
+U pop_back(start<TW_Node<U>>* list){
     TW_Node<U>* current = list->last;
     TW_Node<U>* new_last = (TW_Node<U>*)element_at(list, list->size-2);
     list->last = (TW_Node<U>*)new_last;
@@ -177,7 +263,7 @@ U pop_element(start<TW_Node<U>>* list){
     return data;
 }
 template<typename U>
-U pop_element_begin(start<TW_Node<U>>* list){
+U pop_begin(start<TW_Node<U>>* list){
     TW_Node<U>* current = list->first;
     list->first = list->first->next;
     list->first->prev = nullptr;
@@ -187,7 +273,7 @@ U pop_element_begin(start<TW_Node<U>>* list){
     return data;
 }
 template<typename U>
-U pop_element_at(start<TW_Node<U>>* list, int index){
+U pop_at(start<TW_Node<U>>* list, int index){
     if(index>=list->size){
         throw std::out_of_range("Index out of range");
     }
@@ -211,23 +297,18 @@ void print_list(start<T>* list){
 int main(){
     start<OW_Node<int>>* list = new start<OW_Node<int>>;
     start<TW_Node<int>>* list2 = new start<TW_Node<int>>;
-    for(int i = 1; i<=10; i++){
-        push_element(list, i);
-        push_element_begin(list, i);
-        push_element(list2, i);
-        push_element_begin(list2, i);
+    dynamic_array<int>* d_array = new dynamic_array<int>;
+    tic
+    for(int i = 0; i<=100000; i++){
+        push_begin(list, i);
     }
-    push_element_at(list, 10, 0);
-    push_element_at(list2, 10, 0);
-    print_list(list);
-    print_list(list2);
-    pop_element_at(list, 10);
-    pop_element(list);
-    pop_element_begin(list);
-    pop_element_at(list2, 10);
-    pop_element(list2);
-    pop_element_begin(list2);
-    print_list(list);
-    print_list(list2);
+    toc
+    std::cout<<dur<<"\n";
+    tic
+    for(int i = 0; i<=100000; i++){
+        push_back(list, i);
+    }
+    toc
+    std::cout<<dur<<"\n";
     return 0;
 }

@@ -1,4 +1,4 @@
-#include ".\universal.hpp"
+#include ".\..\universal.hpp"
 struct film
 {
     long long int id;
@@ -15,31 +15,32 @@ struct film
     }
 };
 std::ostream& operator<<(std::ostream& os, const film& f){
-        return os<<"Id:"<<f.id<<"Nazwa:"<<f.nazwa<<"Ocena: "<<f.ocena<<"\n";
+        return os<<"Id:"<<f.id<<" Nazwa:"<<f.nazwa<<" Ocena: "<<f.ocena<<"\n";
     }
 int size;
 film *films;
-void print_films(film *filmy, int size){
+template <typename T>
+void print_tab(T* data, int size){
     for(int i=0;i<size;i++){
-        std::cout<<filmy[i];
+        std::cout<<data[i]<<" ";
     }
     std::cout<<"\n";
 }
-template<typename T>
-void quicksort(T* filmy, int rozmiar){
-    int tmptab[3] = {filmy[0].ocena-(filmy[rozmiar/2].ocena+filmy[rozmiar/2+1].ocena)/2, filmy[1].ocena-(filmy[rozmiar/2-1].ocena+filmy[rozmiar/2+1].ocena)/2, filmy[2].ocena-(filmy[rozmiar/2-1].ocena+filmy[rozmiar/2].ocena)/2};
-    int pp = rozmiar/2;
-    if(tmptab[0]<tmptab[1]&&tmptab[0]<tmptab[2]){
-        pp = rozmiar/2-1;
+template <typename T>
+T* copy_subtable(T* data, int start, int end){
+    T* copy = new T[end-start+1];
+    for(int i=0;i<end-start+1;i++){
+        copy[i] = data[start+i];
     }
-    else if(tmptab[2]<tmptab[0]&&tmptab[2]<tmptab[1]){
-        pp = rozmiar/2+1;
-        
-    }
-    T *pivot = &filmy[rozmiar/2];
-    T *i = filmy;
-    T *j = &filmy[rozmiar-1];
+    return copy;
+}
+template <typename T>
+void quicksort(T* data, int rozmiar){
+    T *pivot = &data[rozmiar/2];
+    T *i = data;
+    T *j = &data[rozmiar-1];
     T ftmp;
+    //print_tab(data, rozmiar);
     if (rozmiar==2)
     {
         if (*i>*j){
@@ -48,24 +49,7 @@ void quicksort(T* filmy, int rozmiar){
             *j=ftmp;
         }
     }
-    if(rozmiar==3){
-        if(*i>*j){
-            ftmp = *i;
-            *i = *j;
-            *j=ftmp;
-        }
-        if(*i>*pivot){
-            ftmp = *i;
-            *i = *pivot;
-            *pivot=ftmp;
-        }
-        if(*j<*pivot){
-            ftmp = *j;
-            *j = *pivot;
-            *pivot=ftmp;
-        }
-    }
-    if(rozmiar>3){
+    if(rozmiar>2){
         while(i!=j){
             while(*i<*pivot&&i<pivot){
                 i++;
@@ -94,12 +78,59 @@ void quicksort(T* filmy, int rozmiar){
             }
 
         }
-        quicksort(filmy, (pivot-filmy));
-        quicksort(pivot+1, rozmiar-(pivot-filmy)-1);
+        if(rozmiar>3){
+            //printf("l size %d\n", (pivot-data));
+            //printf("r size %d\n", rozmiar-((pivot-data)));
+            //printf("pivot %d\n", *pivot);
+            //printf("data %d \n",*data);
+            //printf("p-d %d \n",pivot-data);
+            print_tab(data, rozmiar);
+            quicksort(pivot+1, (pivot-data));
+            quicksort(data, rozmiar-((pivot-data)));
+        }
+    }
+}
+template <typename T>
+void mergesort(T* data, int rozmiar){
+    int cell_size = 1;
+    int lb, rb, le, re;
+    while(cell_size<rozmiar){
+        for(int i=0; i<rozmiar-1; i+=2*cell_size){
+            lb = i;
+            le = std::min(i+cell_size-1, rozmiar-1);
+            rb = le+1;
+            re = std::min(i+2*cell_size-1, rozmiar-1);
+            if(rb < rozmiar){
+                T* lewa = copy_subtable(data, lb, le);
+                T* prawa = copy_subtable(data, rb, re);
+                int j = 0, k=0, m=lb;
+                while(j<le-lb+1&&k<re-rb+1){
+                    if(lewa[j]<prawa[k]){
+                        data[m] = lewa[j];
+                        j++;
+                    }
+                    else{
+                        data[m] = prawa[k];
+                        k++;
+                    }
+                    m++;
+                }
+                while(j<le-lb+1){
+                    data[m] = lewa[j];
+                    j++;
+                    m++;
+                }
+                while(k<re-rb+1){
+                    data[m] = prawa[k];
+                    k++;
+                    m++;
+                }
+            }
+        }
+        cell_size*=2;
     }
 }
 int main(int argc, char *argv[]){
-    std::srand(std::time(0));
     size = atoi(argv[1]);
     films = new film[size];
     std::ifstream plik("projekt1_dane.csv", std::ios::in);
@@ -108,9 +139,7 @@ int main(int argc, char *argv[]){
     film ftmp;
     std::getline(plik, record);
     for(int i=0;i<size;++i){
-        do{
         std::getline(plik, record);
-        }while(record[record.size()-1]!='0');
         std::stringstream strstr(record);
         std::getline(strstr, strtmp,',');
         if(strtmp[0]=='"'){
@@ -119,17 +148,19 @@ int main(int argc, char *argv[]){
         ftmp.id = std::stoll(strtmp);
         std::getline(strstr, ftmp.nazwa,',');
         std::getline(strstr, strtmp, ',');
-        while(strtmp[strtmp.size()-2]!='.'||strtmp[strtmp.size()-1]!='0'){
+        while((strtmp[0]<48||strtmp[0]>57)){
             ftmp.nazwa += ","+strtmp;
             std::getline(strstr, strtmp, ',');
         }
         ftmp.ocena = std::stoi(strtmp);
         films[i] = ftmp;
     }
-    print_films(films, size);
+    int test[16] = {6,5,3,1,8,7,2,4, 9, 15, 12, 11, 10, 14, 13, 16};
+    int a[8] = {1,2,3,4,5,6,7,8};
+    print_tab(a, 8);
     tic
     quicksort(films, size);
     toc
-    print_films(films, size);
+    print_tab(a, 8);
     std::cout<<time;
 }
