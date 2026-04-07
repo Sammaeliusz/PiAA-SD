@@ -20,10 +20,17 @@ struct film
     friend bool operator!=(const film& f1, const film& f2){
         return f1.ocena!=f2.ocena;
     }
+    friend bool operator==(const film& f1, const film& f2){
+        return f1.ocena==f2.ocena;
+    }
+    friend bool operator==(const film& f1, const int& i){
+        return f1.ocena==i;
+    }
 };
 std::ostream& operator<<(std::ostream& os, const film& f){
         return os<<"Id:"<<f.id<<" Nazwa:"<<f.nazwa<<" Ocena: "<<f.ocena<<"\n";
     }
+std::ofstream logi("logi.txt", std::ios::out);
 int size;
 film *films;
 template <typename T>
@@ -37,6 +44,7 @@ template<typename T>
 bool is_sorted(T* data, int size){
     for(int i=0;i<size-1;i++){
         if(data[i]>data[i+1]){
+            std::cout<< "Not sorted at index " << i << ": " << data[i] << " > " << data[i+1] << std::endl;
             return false;
         }
     }
@@ -51,97 +59,80 @@ T* copy_subtable(T* data, int start, int end){
     return copy;
 }
 template <typename T>
-void quicksort(T* data, int rozmiar){
-    T *pivot = &data[rozmiar/2];
+bool quicksort(T* data, int rozmiar){
+    bool equal = true;
+    
+    //printf("\n\n");
+    T pivot = data[rozmiar/2];
     T *i = data;
-    T *j = &data[rozmiar-1];
+    T *j = &data[rozmiar-2];
     T ftmp;
     //print_tab(data, rozmiar);
     if (rozmiar==2)
     {
-        if (*i>*j){
-            ftmp = *i;
-            *i = *j;
-            *j=ftmp;
+        if (*data>*(data+1)){
+            swap(data, data+1);
         }
+        //print_tab(data, rozmiar);
+        return true;
     }
     if(rozmiar==3){
-        if(*i>*j){
-            ftmp = *i;
-            *i = *j;
-            *j=ftmp;
+        if(*data>*(data+1)){
+            swap(data, data+1);
         }
-        if(*i>*pivot){
-            ftmp = *i;
-            *i = *pivot;
-            *pivot=ftmp;
+        if(*data>*(data+2)){
+            swap(data, data+2);
         }
-        if(*pivot>*j){
-            ftmp = *pivot;
-            *pivot = *j;
-            *j=ftmp;
+        if(*(data+1)>*(data+2)){
+            swap(data+1, data+2);
         }
+        //print_tab(data, rozmiar);
+        return true;
     }
     if(rozmiar>3){
-        bool equal = true;
+        swap(&pivot, &data[rozmiar-1]);
+        pivot = data[rozmiar-1];
         while(i<j){
-            print_tab(data, rozmiar);
-            printf("Left size: %d, Right size: %d\n", pivot-data, rozmiar-(pivot-data));
-            printf("Pivot: %d\n", *pivot);
-            printf("i: %d, j: %d, pivot: %d\n", i-data, j-data, pivot-data);
-            printf("Lvalue: %d\n", *i);
-            printf("Rvalue: %d\n \n", *j);
-            if(*i!=*pivot||*j!=*pivot){
-                    equal = false;
-            }
-            if(*i<*pivot&&i<pivot){
+            //print_tab(data, rozmiar);
+            //printf("Left size: %d, Right size: %d\n", pivot-data, rozmiar-(pivot-data));
+            //logi<< "i: " << i-data << ", j: " << j-data << ", pivot: " << pivot-data << "\n";
+            //logi<< "Equal: " << equal << "\n";
+            if(*i<pivot){
                 i++;
-                if(*i!=*pivot){
+                if(*i!=pivot){
                     equal = false;
                 }
             }
-            if(*j>*pivot&&j>pivot){
+            if(*j>=pivot){
                 j--;
-                if(*j!=*pivot){
+                if(*j!=pivot){
                     equal = false;
                 }
             }
-            if(j>pivot&&i<pivot){
-                ftmp = *i;
-                *i=*j;
-                *j=ftmp;
+            if(i<j&&*i>=pivot&&*j<pivot){
+                swap(i, j);
                 i++;
                 j--;
             }
-            else if(i==pivot&&i!=j){
-                ftmp = *pivot;
-                *pivot = *(pivot+1);
-                pivot++;
-                if(j<&data[rozmiar-1]){
-                    j++;
-                }
-                *pivot = ftmp;
-            }
-            else if(j==pivot&&i!=j){
-                ftmp = *pivot;
-                *pivot = *(pivot-1);
-                pivot--;
-                if(i>data){
-                    i--;
-                }
-                *pivot = ftmp;
-            }
-        }
-        if(equal){
-            return;
         }
         if(rozmiar<=10){
             if(is_sorted(data, rozmiar)){
-                return;
+                return true;
             }
         }
-        quicksort(pivot, rozmiar-(pivot-data));
-        quicksort(data, pivot-data);
+        //printf("i: %d, j: %d, pivot: %d\n", i-data, j-data, pivot-data);
+        //printf("Left size: %d, Right size: %d\n", i-data, rozmiar-(i-data)-1);
+        //print_tab(data, rozmiar);
+        if(equal){
+            return true;
+        }
+        if(i==data){
+            quicksort(data, rozmiar-1);
+        }
+        else{
+            quicksort(i, rozmiar-(i-data));
+            quicksort(data, i-data+1);
+        }
         
     }
 }
@@ -187,29 +178,30 @@ void mergesort(T* data, int rozmiar){
 }
 template <typename T>
 void bucketsort(T* data, int rozmiar){
-        int min = 1;
-        int max = 10;
-    T out[rozmiar];
-    T* end = out;
+    int min = 1;
+    int max = 10;
+    T* end = data;
+    dynamic_array<T>* buckets = new dynamic_array<T>[max-min+1];
     for(int j=0; j<rozmiar; j++){
-        dynamic_array<T>* bucket = new dynamic_array<T>;
-        printf("%d %d %d\n", bucket->start, bucket->size, bucket->capacity);
+        //
         for(int i=min; i<=max; i++){
-            if(data[j].ocena==i){
-                push_back(bucket, data[j]);
+            //printf("%d %d %d\n", buckets[i-min].start, buckets[i-min].size, buckets[i-min].capacity);
+            if(data[j]==i){
+                //printf("Pushing %d to bucket of size %d\n", data[j].id, buckets[i-min].capacity);
+                push_begin(buckets+i-min, data[j]);
+                break;
             }
             
         }
-        print_tab(bucket->start, bucket->capacity);
-        for(int j=0; j<bucket->capacity; j++){
-            *end = bucket->start[j];
+    } 
+    for(int i=0; i<max-min+1; i++){
+        //print_tab(buckets[i].start, buckets[i].capacity);
+        while(buckets[i].capacity>0){
+            *end = *pop_begin(buckets+i);
             end++;
         }
-    } 
-    print_tab(out, rozmiar);
-    for(int i=0; i<rozmiar; i++){
-        data[i] = out[i];
     }
+    delete [] buckets;
 }
 int main(int argc, char *argv[]){
     size = atoi(argv[1]);
@@ -226,7 +218,7 @@ int main(int argc, char *argv[]){
     for(int i=0;i<size;++i){
         std::getline(plik, record);
         if(record[record.size()-1]==','){
-            continue;;
+            continue;
         }
         std::stringstream strstr(record);
         std::getline(strstr, strtmp,',');
@@ -244,19 +236,36 @@ int main(int argc, char *argv[]){
             ftmp.nazwa = ftmp.nazwa.substr(0,ftmp.nazwa.size()-3);
         }
         films[i] = ftmp;
+        if(ftmp.ocena<1||ftmp.ocena>10){
+            i--;
+        }
     }
     srand(time(0));
-    int testsize = 20;
+    int testsize = 100;
     int test[testsize];
+    long long int tot_time = 0;
+    film* copy= new film[size];
     for(int i=testsize; i>0; i--){
-        test[testsize-i]=rand()%(testsize-5)+1;
+        test[testsize-i]=rand()%10+1;
     }
-    int a[5] = {10,10,10,14,11};
-    print_tab(films, size);
-    tic
-    quicksort(films, size);
-    toc
-    print_tab(films, size);
-    printf("Is sorted: %d\n", is_sorted(films, size));
-    std::cout<<time;
+    int a[5] = {10,10,10,10,10};
+    //print_tab(films, size);
+    int avg = 10;
+    //for(int i=0; i<avg; i++){
+        printf("Test %d\n", 0);
+        for(int j=0; j<size; j++){
+            copy[j] = films[j];
+        }
+        print_tab(films, size);
+        tic
+        quicksort(films, size);
+        toc
+        tot_time += time;
+        print_tab(films, size);
+        printf("Is sorted: %d\n", is_sorted(films, size));
+    //}
+    
+    //print_tab(copy, size);
+    
+    std::cout<<tot_time/avg<<" microseconds\n";
 }
