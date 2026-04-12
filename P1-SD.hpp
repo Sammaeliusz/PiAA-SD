@@ -1,86 +1,95 @@
 template<typename T>
 struct dynamic_array
 {
-    T* start = (T*)malloc(sizeof(T)*10);
-    int size=10;
-    int capacity=0;
+    int capacity=10;
+    int size=0;
+    T* start = new T[capacity];
 };
 template<typename T>
 void push_back(dynamic_array<T>* a, T data){
-    if(a->capacity==a->size){
-        a->start = (T*)realloc(a->start, 2*a->size*sizeof(T));
-        a->size *=2;
+    if(a->size==a->capacity){
+        T* tmp = (T*)relokuj(a->start, a->capacity, 2*a->capacity);
+        if(!tmp) return;
+        a->start = tmp;
+        a->capacity *= 2;
     }
-    *(a->start+a->capacity) = data;
-    a->capacity++;
+    *(a->start+a->size) = data;
+    a->size++;
 }
 template<typename T>
 void push_begin(dynamic_array<T>* a, T data){
-    if(a->capacity==a->size){
-        a->start = (T*)realloc(a->start, 2*a->size*sizeof(T));
-        a->size *= 2;
+    if(a->size==a->capacity){
+        a->start = (T*)relokuj(a->start, a->capacity, 2*a->capacity);
+        a->capacity *= 2;
     }
-    memcpy(a->start+1, a->start, a->capacity*sizeof(T));
-    *(a->start) = data;
-    a->capacity++;
-}
-template<typename T>
-void push_at(dynamic_array<T>* a, T data, int position){
-    if(a->capacity==a->size){
-        a->start = (T*)realloc(a->start, 2*a->size*sizeof(T));
-        a->size *= 2;
-    }
-    for(int i = a->capacity; i>position; i--){
+    for(int i = a->size; i>0; i--){
         *(a->start+i) =*(a->start+i-1);
     }
-    *(a->start+position) = data;
-    a->capacity++;
+    *(a->start) = data;
+    a->size++;
 }
 template<typename T>
-T* pop_back(dynamic_array<T>* a){
+void push_at(dynamic_array<T>* a, int index, T data){
+    if(a->size==a->capacity){
+        a->start = (T*)relokuj(a->start, a->capacity, 2*a->capacity);
+        a->capacity *= 2;
+    }
+    for(int i = index; i<a->size; i++){
+        *(a->start+i+1) =*(a->start+i);
+    }
+    *(a->start+index) = data;
+    a->size++;
+}
+template<typename T>
+T pop_back(dynamic_array<T>* a){
     if(a->size==0){
         throw std::out_of_range("Array is empty");
     }
-    T* data = a->start+a->capacity-1;
-    if(a->capacity+1==a->size/2){
-        a->start = (T*)reallock(a->start, sizeof(T)*a->size/2);
-        a->size /= 2;
+    T data = *(a->start+a->size-1);
+    if(a->size+1==a->capacity/2&&a->capacity>10){
+        a->start = (T*)relokuj(a->start, a->capacity, a->capacity/2);
+        a->capacity /= 2;
     }
-    a->capacity--;
+    a->size--;
     return data;
 }
 template<typename T>
-T* pop_begin(dynamic_array<T>* a){
+T pop_begin(dynamic_array<T>* a){
     if(a->size==0){
         throw std::out_of_range("Array is empty");
     }
-    T* data = a->start;
-    a->start++;
-    if(a->capacity+1==a->size/2){
-        a->start = (T*)reallock(a->start, sizeof(T)*a->size/2);
-        a->size /= 2;
+    T data = *a->start;
+    for(int i = 0; i < a->size-1; i++){
+    a->start[i] = a->start[i+1];
     }
-    a->capacity--;
+    a->size--;
+    if(a->size+1==a->capacity/2 && a->capacity>10){
+        a->start = (T*)relokuj(a->start, a->capacity, a->capacity/2);
+        a->capacity /= 2;
+    }
+    a->size--;
     return data;
 }
 template <typename T>
-T* pop_at(dynamic_array<T>* a, int position){
+T pop_at(dynamic_array<T>* a, int index){
     if(a->size==0){
         throw std::out_of_range("Array is empty");
     }
-    T* data = a->start+position;
-    memcpy(a->start+position, a->start+position+1, (a->capacity-position)*sizeof(T));
-    if(a->capacity+1==a->size/2){
-        a->start = (T*)reallock(a->start, sizeof(T)*a->size/2);
-        a->size /= 2;
+    T data = *(a->start+index);
+    for(int i = index; i < a->size - 1; i++){
+    a->start[i] = a->start[i+1];
     }
-    a->capacity--;
+    if(a->size+1==a->capacity/2 && a->capacity>10){
+        a->start = (T*)relokuj(a->start, a->capacity, a->capacity/2);
+        a->capacity /= 2;
+    }
+    a->size--;
     return data;
 }
 template<typename T>
 void print_list(dynamic_array<T>* array){
-    std::cout<<"size: "<<array->size<<" capacity: "<<array->capacity<<"\n";
-    for(int i=0; i<array->capacity; i++){
+    std::cout<<"capacity: "<<array->capacity<<" size: "<<array->size<<"\n";
+    for(int i=0; i<array->size; i++){
         std::cout<<*(array->start+i)<<" ";
     }
 }
@@ -166,10 +175,10 @@ void push_at(start<OW_Node<U>>* list, int index, U data){
     }
     OW_Node<U>* new_node = new OW_Node<U>;
     new_node->data = data;
-    void* current = element_at(list, index);
-    new_node->next = (OW_Node<U>*)current;
-    current = element_at(list, index-1);
-    ((OW_Node<U>*)current)->next = new_node;
+    OW_Node<U>* current = (OW_Node<U>*)element_at(list, index-1);
+    new_node->next = current->next;
+    current->next = new_node;
+    list->size++;
 }
 template<typename U> 
 U pop_back(start<OW_Node<U>>* list){
@@ -247,6 +256,7 @@ void push_at(start<TW_Node<U>>* list, int index, U data){
     current->prev->next = new_node;
     new_node->prev = current->prev;
     current->prev = new_node;
+    list->size++;
 }
 template<typename U> 
 U pop_back(start<TW_Node<U>>* list){
@@ -290,4 +300,39 @@ void print_list(start<T>* list){
         current = current->next;
     }
     std::cout<<current->data<<"\n";
+}
+template<typename T>
+int find(start<TW_Node<T>>* list, T data){
+    TW_Node<T>* current = list->first;
+    int index = 0;
+    while(current!=nullptr){
+        if(current->data==data){
+            return index;
+        }
+        current = current->next;
+        index++;
+    }
+    return -1;
+}
+template<typename T>
+int find(start<OW_Node<T>>* list, T data){
+    OW_Node<T>* current = list->first;
+    int index = 0;
+    while(current!=nullptr){
+        if(current->data==data){
+            return index;
+        }
+        current = current->next;
+        index++;
+    }
+    return -1;
+}
+template<typename T>
+int find(dynamic_array<T>* array, T data){
+    for(int i=0; i<array->size; i++){
+        if(*(array->start+i)==data){
+            return i;
+        }
+    }
+    return -1;
 }
