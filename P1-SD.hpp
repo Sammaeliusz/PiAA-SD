@@ -1,3 +1,5 @@
+#pragma once
+#include "universal.hpp"
 template<typename T>
 struct dynamic_array
 {
@@ -113,7 +115,7 @@ struct TW_Node{
     using value_type = T;
 };
 template<typename U>
-void* element_at(start<TW_Node<U>>* list, int index){
+U* element_at(start<TW_Node<U>>* list, int index){
     if(index>=list->size){
         throw std::out_of_range("Index out of range");
     }
@@ -133,7 +135,7 @@ void* element_at(start<TW_Node<U>>* list, int index){
     }
 }
 template<typename U>
-void* element_at(start<OW_Node<U>>* list, int index){
+U* element_at(start<OW_Node<U>>* list, int index){
     if(index>=list->size){
         throw std::out_of_range("Index out of range");
     }
@@ -204,6 +206,9 @@ template<typename U>
 U pop_at(start<OW_Node<U>>* list, int index){
     if(index>=list->size){
         throw std::out_of_range("Index out of range");
+    }
+    if(index==0){
+        return pop_begin(list);
     }
     void* current = element_at(list, index);
     OW_Node<U>* current_node = (OW_Node<U>*)current;
