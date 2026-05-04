@@ -63,7 +63,7 @@ class priority_queue_array:public priority_queue<T, U>{
         return array.size;
     }
     void increase_key(T o){
-        for(int i = 0; i<array.size; i++){
+        for(int i = array.size; i>=0; i--){
             if(array.start[i].value == o){
                 array.start[i].priority++;
                 obj_with_priority<T, U> temp =pop_at(&array, i);
@@ -73,7 +73,7 @@ class priority_queue_array:public priority_queue<T, U>{
         }
     } 
     void decrease_key(T o){
-        for(int i = 0; i<array.size; i++){
+        for(int i = array.size; i>=0; i--){
             if(array.start[i].value == o){
                 array.start[i].priority--;
                 obj_with_priority<T, U> temp = pop_at(&array, i);
