@@ -7,12 +7,14 @@ int main(){
     for(int i = 0; i < num_tests; i++){
         pqa[i] = priority_queue_array<int, int>();
         pqh[i] = priority_queue_heap<int, int>();
-        pqll[i] = priority_queue_linked_list<int, int>();
+        //pqll[i] = priority_queue_linked_list<int, int>();
     }
+    srand(time(0));
+    int random_num= rand()%1000;
     for(int i=0; i<num_tests; i++){
         for(int j=0; j<1000; j++){
             pqa[i].insert(j,j);
-            pqh[i].insert(j,j);
+            //pqh[i].insert(j,j);
             //pqll[i].insert(j,j);
         }
         pqll[i].insert(0,0);
@@ -21,7 +23,7 @@ int main(){
     {
     tic
     for(int i=0; i<num_tests; i++){
-        pqa[i].insert(500, 500);
+        pqa[i].insert(250, random_num);
     }
     toc
     printf("Time of 1000 operation for insert in priority_queue_array: %d microseconds\n", time);
@@ -29,7 +31,7 @@ int main(){
     {
     tic
     for(int i=0; i<num_tests; i++){
-        pqh[i].insert(500, 500);
+        pqh[i].insert(1001, random_num);
     }
     toc
     printf("Time of 1000 operation for insert in priority_queue_heap: %d microseconds\n", time);
@@ -37,7 +39,7 @@ int main(){
     {
     tic
     for(int i=0; i<num_tests; i++){
-        pqll[i].insert(1001, 1001);
+        pqll[i].insert(500, 500);
     }
     toc
     printf("Time of 1000 operation for insert in priority_queue_linked_list: %d microseconds\n", time);
@@ -114,15 +116,16 @@ int main(){
     toc
     printf("Time of 1000 operation for top in priority_queue_linked_list: %d microseconds\n", time);
     }
-    */
+    
     printf("Sizes of priority queues:\n");
     printf("priority_queue_array: %d\n", pqa[0].size());
     printf("priority_queue_heap: %d\n", pqh[0].size());
     printf("priority_queue_linked_list: %d\n", pqll[0].size());
+    */
     {
     tic
     for(int i=0; i<num_tests; i++){
-        pqa[i].increase_key(498+i%2);
+        pqa[i].increase_key(0);
     }
     toc
     printf("Time of 1000 operation for increase in priority_queue_array: %d microseconds\n", time);
@@ -130,17 +133,18 @@ int main(){
     {
     tic
     for(int i=0; i<num_tests; i++){
-        pqh[i].increase_key(498+i%20);
+        pqa[i].increase_key(500);
     }
     toc
     printf("Time of 1000 operation for increase in priority_queue_heap: %d microseconds\n", time);}
     {
     tic
     for(int i=0; i<num_tests; i++){
-        pqll[i].increase_key(498+i%2);
+        pqa[i].increase_key(1000);
     }
     toc
     printf("Time of 1000 operation for increase in priority_queue_linked_list: %d microseconds\n", time);
     }
+    
     return 0;
 }
