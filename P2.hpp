@@ -2,6 +2,7 @@ template <typename T>
 class graph_node{
     protected:
     T value;
+    int index=-1;
     public:
     graph_node(){}
     graph_node(T c_value){
@@ -9,34 +10,33 @@ class graph_node{
     }
     T getValue(){return value;}
     void setValue(T val){value=val;}
-    operator==(const graph_node<T>& other) const {
-        return &value == &other.value;
+    int getIndex(){return index;}
+    void setIndex(int i){index = i;}
+    bool operator==(const graph_node<T> other) const {
+        return value == other.value;
     }
 };
 template <typename T>
 class graph_edge :public graph_node<T>
 {
     private:
-        graph_node<T>* end1;
-        graph_node<T>* end2;
+        int end1;
+        int end2;
     public:
         graph_edge(){}
-        graph_edge(graph_node<T>* c_end1, graph_node<T>* c_end2, T c_value){
+        graph_edge(int c_end1, int c_end2, T c_value){
             end1 = c_end1;
             end2 = c_end2;
             this->value = c_value;
         }
-        graph_node<T>* endVertices(){
-            graph_node<T>* wyn = new graph_node<T>[2];
-            wyn[0] = *end1;
-            wyn[1] = *end2;
-            return wyn;
+        std::pair<int, int> endVertices() {
+            return {end1, end2};
         }
         graph_node<T> opposite(graph_node<T> v){
-            if(&v==end1)
-                return *end2;
+            if(v==end1)
+                return end2;
             else
-                return *end1;
+                return end1;
         }
         void replace(T r_value){
             this->value = r_value;
@@ -47,83 +47,105 @@ template <typename T>
 class graph_vertice_list:public graph_node<T>
 {
     private:
-        std::vector<graph_edge<T>*> incidence_list;
+        std::vector<int> incidence_list;
     public:
         graph_vertice_list(T c_value):graph_node<T>(c_value){
             incidence_list.clear();
         }
-        std::vector<graph_edge<T>*>* getListPointer(){return &incidence_list;}
-        void addEdge(graph_edge<T>);
+        std::vector<int>* getListPointer(){return &incidence_list;}
+        void addEdge(int e){
+            incidence_list.push_back(e);
+        };
 
 };
 template <typename T>
 class graph_edge_list :public graph_edge<T>
 {
     private:
-        std::vector<graph_edge<T>*>* incidence_list1;
-        std::vector<graph_edge<T>*>* incidence_list2;
+        std::vector<int>* incidence_list1;
+        std::vector<int>* incidence_list2;
     public:
-        graph_edge_list(graph_vertice_list<T>* c_end1, graph_vertice_list<T>* c_end2, T c_value){
-            graph_edge<T>(c_end1, c_end2, c_value);
-            incidence_list1 = c_end1->getListPointer();
-            incidence_list2 = c_end2->getListPointer();
+        graph_edge_list(graph_vertice_list<T>& c_end1, graph_vertice_list<T>& c_end2, T c_value):graph_edge<T>(c_end1.getIndex(), c_end2.getIndex(), c_value){
+            incidence_list1 = c_end1.getListPointer();
+            incidence_list2 = c_end2.getListPointer();
         }
 };
-template <typename T>
-class graph_vertice_matrix:public graph_node<T>
-{
-    private:
-    int id;
-    public:
-    int getId(){
-        return id;
-    }
-    void setId(int i){
-        id=i;
-    }
-};
-template <typename T>
-class graph{
+
+template <typename T, typename V, typename E>
+class graph {
     protected:
-    std::vector<graph_node<T>> vertices;
-    std::vector<graph_edge<T>> edges;
+    std::vector<V> vertices;
+    std::vector<E> edges;
     public:
     graph(){};
-    graph_node<T> getVertice(int i){
-        return vertices[i];
+    V getVertice(int i){
+        for(int j =0; j<vertices.size(); j++){
+            if(i == vertices[j].getValue()){
+                return vertices[j];
+            }
+        }
     }
-    graph_edge<T> getEdge(int i){
+    int getVerticeIndex(V v){
+        for(int j =0; j<vertices.size(); j++){
+            if(v == vertices[j]){
+                return j;
+            }
+        }
+    }
+    int getVerticeIndex(int v){
+        for(int j =0; j<vertices.size(); j++){
+            if(v == vertices[j].getValue()){
+                return j;
+            }
+        }
+    }
+    E getEdge(int i){
         return edges[i];
+    }
+    E getEdge(int v, int w){
+        for(int i =0; i<edges.size(); i++){
+            if((edges[i].endVertices().first == getVertice(v) && edges[i].endVertices().second == getVertice(w)) || (edges[i].endVertices().first == getVertice(w) && edges[i].endVertices().second == getVertice(v)    )){
+                return edges[i];
+            }
+        }
     }
     int verticeNumber(){
         return vertices.size();
     }
+    V& getVerticeFromIndex(int i){
+        return this->vertices[i];
+    }
     int edgeNumber(){
         return edges.size();
     }
-    graph_node<T> endVertices(graph_edge<T> e){
+    V endVertices(E e){
         for(int i =0; i<edges.size(); i++){
             if(e == edges[i]){
                 return edges[i].endVertices();
             }
         }
     }
-    graph_node<T> opposite(graph_node<T> v, graph_edge<T> e){
+    graph_node<T> opposite(V &v, E e){
         for(int i =0; i<edges.size(); i++){
             if(e == edges[i]){
                 return edges[i].opposite(v);
             }
         }
     }
-    bool areAdjecent(graph_node<T> v, graph_node<T> w);
-    void replace(graph_node<T> v, T x){
+    bool areAdjecent(V v, V w);
+    std::vector<E>* incidentEdges(V v)
+    {
+        std::vector<E>* inc_edges = new std::vector<E>();
+        return inc_edges;
+    }
+    void replace(V v, T x){
         for(int i =0; i<vertices.size(); i++){
             if(v == vertices[i]){
                 vertices[i].setValue(x);
             }
         }
     }
-    void replace(graph_edge<T> e, T x){
+    void replace(E e, T x){
         for(int i =0; i<edges.size(); i++){
             if(e == edges[i]){
                 edges[i].setValue(x);
@@ -131,29 +153,20 @@ class graph{
         }
     }
     void insertVertex(T o){
-        vertices.push_back(graph_node<T>(o));
+        vertices.push_back(V(o));
+        vertices[vertices.size()-1].setIndex(vertices.size()-1);
     }
-    void removeEdge(graph_edge<T> e){
+    void removeEdge(E e){
         for(int i =0; i<edges.size(); i++){
             if(e == edges[i]){
-                edges.erase(i);
+                edges.erase(edges.begin() + i);
             }
         }
     }
-    std::vector<graph_edge<T>> incidentEdges(graph_node<T> v){
-        std::vector<graph_edge<T>> wyn;
-        for(int i =0; i<edges.size(); i++){
-            graph_node<T>* endv = edges[i].endVertices();
-            if(endv[0] == v || endv[1] == v){
-                wyn.push_back(edges[i]);
-            }
-        }
-        return wyn;
-    }
-    void removeVertex(graph_node<T> v){
+    void removeVertex(V v){
         for(int i =0; i<vertices.size(); i++){
             if(v == vertices[i]){
-                std::vector<graph_edge<T>> inc_edg = incidentEdges();
+                std::vector<E> inc_edg = incidentEdges(v);
                 for(int j=0; j<inc_edg.size(); j++){
                     removeEdge(inc_edg[j]);
                 }
@@ -161,86 +174,146 @@ class graph{
             }
         }
     }
-    void printGraph(){
-        for(int i =0; i<vertices.size(); i++){
-            std::cout<<vertices[i].getValue()<<": ";
-            std::vector<graph_edge<T>> inc_edg = incidentEdges(vertices[i]);
-            for(int j=0; j<inc_edg.size(); j++){
-                graph_node<T>* endv = inc_edg[j].endVertices();
-                if(endv[0] == vertices[i])
-                    std::cout<<endv[1].getValue()<<" ";
-                else
-                    std::cout<<endv[0].getValue()<<" ";
-            }
-            std::cout<<std::endl;
-        }
-    }
+    
 };
 template <typename T>
-class graph_matrix:public graph<T>{
+class graph_matrix:public graph<T, graph_node<T>, graph_edge<T>>{
     private:
-    std::vector<graph_vertice_matrix<T>> vertices;
-    std::vector<std::vector<graph_edge<T>*>> matrix;
+    std::vector<std::vector<int>> matrix;
     public:
-    graph_matrix(){
+    graph_matrix():graph<T, graph_node<T>, graph_edge<T>>(){
+        matrix.clear();
     };
-    graph_vertice_matrix<T> getVertice(int i){
-        return vertices[i];
-    }
     void insertVertex(T o){
-        graph<T>::insertVertex(o);
+        graph<T, graph_node<T>, graph_edge<T>>::insertVertex(o);
         for(int i =0; i<matrix.size(); i++){
             matrix[i].push_back(0);
         }
-        std::vector<graph_edge<T>*> new_row;
-        for(int i =0; i<vertices.size(); i++){
-            new_row.push_back(NULL);
+        std::vector<int> new_row;
+        for(int i =0; i<this->vertices.size(); i++){
+            new_row.push_back(0);
         }
         matrix.push_back(new_row);
     }
-    void insertEdge(graph_vertice_matrix<T> v, graph_vertice_matrix<T> w, T o){
-        this->edges.push_back(graph_edge<T>(&v, &w, o));
-        int id1 = v.getId();
-        int id2 = w.getId();
-        matrix[id1][id2] = &this->edges[this->edges.size()-1];
-        matrix[id2][id1] = &this->edges[this->edges.size()-1];
+    void insertEdge(int v, int w, T o){
+        this->edges.push_back(graph_edge<T>(this->getVerticeIndex(v), this->getVerticeIndex(w), o));
+        matrix[v][w] = this->edges.size() - 1;
+        //matrix[w][v] = this->edges.size() - 1;
     }
-    bool areAdjecent(graph_node<T> v, graph_node<T> w){
-        int id1 = v.getId();
-        int id2 = w.getId();
-        if(matrix[id1][id2] != NULL)
+    bool areAdjecent(int v, int w){
+        if(matrix[v][w] != 0)
             return true;
         else
             return false;
     }
-
+    std::vector<int>* incidentEdges(int v){
+        std::vector<int>* inc_edges = new std::vector<int>();
+        for(int i =0; i<this->vertices.size(); i++){
+            if(matrix[v][i] != 0){
+                inc_edges->push_back(matrix[v][i]);
+            }
+        }
+        return inc_edges;
+    }
 };
 template <typename T>
-class graph_list:public graph<T>{
-    private:
-    std::vector<graph_vertice_list<T>> vertices;
-    std::vector<graph_edge_list<T>> edges;
+class graph_list:public graph<T, graph_vertice_list<T>, graph_edge_list<T>>{
     public:
     graph_list(){};
-    graph_vertice_list<T> getVertice(int i){
-        return vertices[i];
+    graph_vertice_list<T>& getVertice(int i){
+        for(int j =0; j<this->vertices.size(); j++){
+            if(i == this->vertices[j].getValue()){
+                return this->vertices[j];
+            }
+        }
     }
+
     void insertVertex(T o){
-         graph_vertice_list<T> new_vertice(o);
-         new_vertice.getListPointer()->clear();
-         vertices.push_back(new_vertice);
+        graph_vertice_list<T> new_vertice(o);
+        new_vertice.setIndex(this->vertices.size());
+        this->vertices.push_back(new_vertice);
     }
-    void insertEdge(graph_vertice_list<T> v, graph_vertice_list<T> w, T o){
-        edges.push_back(graph_edge_list<T>(&v, &w, o));
-        v.getListPointer()->push_back(&edges[edges.size()-1]);
-        w.getListPointer()->push_back(&edges[edges.size()-1]);
+    void insertEdge(int v, int w, T o){
+        graph_edge_list<T> new_edge(this->getVertice(v), this->getVertice(w), o);
+        this->edges.push_back(new_edge);
+        this->getVertice(v).addEdge(this->edges.size() - 1);
+        //this->getVertice(w).addEdge(this->edges.size() - 1);
     }
-    bool areAdjecent(graph_node<T> v, graph_node<T> w){
-        std::vector<graph_edge<T>> inc_edg = incidentEdges(v);
-        for(int i =0; i<inc_edg.size(); i++){
-            if(inc_edg[i].opposite(v) == w)
+    bool areAdjecent(int v, int w){
+        std::vector<int>* inc_edg = incidentEdges(v);
+        for(int i =0; i<inc_edg->size(); i++){
+            if(this->opposite(this->getVertice(v), this->edges[inc_edg->at(i)]) == w)
                 return true;
         }
         return false;
     }
+    std::vector<int>* incidentEdges(int v){
+        return this->vertices[v].getListPointer();
+    }
 };
+template <typename G>
+void constructGraph(G& g, int vertices, float density){
+    for(int i =0; i<vertices; i++){
+        g.insertVertex(i);
+    }
+    for(int i =0; i<vertices; i++){
+        for(int j = 0; j<vertices*density; j++){
+            if(i!=j)
+                g.insertEdge(i, j, rand()%100+1);
+        }
+    }/*
+        else{
+            for(int j = 0; j<g.verticeNumber()-1*density; j++){
+                int e_ver = rand()%g.verticeNumber();
+                while(e_ver == i){
+                    e_ver = rand()%g.verticeNumber();
+                }
+                while(g.areAdjecent(i, e_ver)){
+                    e_ver = rand()%g.verticeNumber();
+                }
+                g.insertEdge(i, e_ver, rand()%100+1);
+            }
+        }
+    }*/
+}
+
+template <typename G>
+void printGraph(G& g){
+        printf("Printing graph with %d vertices and %d edges:\n", g.verticeNumber(), g.edgeNumber());
+        for(int i =0; i<g.verticeNumber(); i++){
+            auto inc_edges = g.incidentEdges(i);
+            std::cout<<"Vertex: "<<g.getVerticeFromIndex(i).getValue()<<" Edges: "<<inc_edges->size()<<" | ";
+            for(int j =0; j<inc_edges->size(); j++){
+                std::pair<graph_node<int>, graph_node<int>> endv = g.getEdge(inc_edges->at(j)).endVertices();
+                std::cout<<endv.first.getValue()<<" - "<<g.getEdge(inc_edges->at(j)).getValue()<<" - "<<endv.second.getValue()<<", ";
+            }
+            std::cout<<std::endl;
+        }
+        
+    }
+template <typename G>
+std::pair<int*, int*> BellmanFord(G& g, int startVertex){
+    int* odleglosc = new int[g.verticeNumber()];
+    int* poprzednik = new int[g.verticeNumber()];
+    for(uint i = 0; i<g.verticeNumber(); i++){
+        odleglosc[i] = INT_MAX;
+        poprzednik[i] = -1;
+    }
+    odleglosc[g.getVerticeIndex(startVertex)] = 0;
+    for(uint i=1; i<g.verticeNumber(); i++){
+        for(uint j=0; j<g.edgeNumber(); j++){
+            graph_edge<int> edge = g.getEdge(j);
+            std::pair<int, int> endv = edge.endVertices();
+            if(odleglosc[endv.first] != INT_MAX && odleglosc[endv.first]+edge.getValue() < odleglosc[endv.second]){
+                odleglosc[endv.second] = odleglosc[endv.first]+edge.getValue();
+                poprzednik[endv.second] = endv.first;
+            }/*
+            else if(odleglosc[endv.second] != INT_MAX && odleglosc[endv.second]+edge.getValue() < odleglosc[endv.first]){
+                printf("Updating distance to vertex %d: from: %d to: %d\n", endv.first, odleglosc[endv.first], odleglosc[endv.second]+edge.getValue());
+                odleglosc[endv.first] = odleglosc[endv.second]+edge.getValue();
+                poprzednik[endv.first] = endv.second;
+            }*/
+        }
+    }
+    return std::pair<int*, int*>(odleglosc, poprzednik);
+}

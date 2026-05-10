@@ -6,9 +6,11 @@
 #include <string.h>
 #include <fstream>
 #include <sstream>
+#include <limits.h>
 using namespace std::chrono;
 #define tic auto start = high_resolution_clock::now();
 #define toc auto stop = high_resolution_clock::now(); auto duration = duration_cast<microseconds>(stop - start); auto time = duration.count();
+#define uint unsigned int
 template<typename T>
 void swap(T* a, T* b){
     T tmp = *a;
