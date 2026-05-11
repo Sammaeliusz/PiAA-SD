@@ -98,6 +98,7 @@ class graph {
                 return j;
             }
         }
+        return -1;
     }
     E getEdge(int i){
         return edges[i];
