@@ -99,6 +99,7 @@ class graph {
                 return j;
             }
         }
+        return -1;
     }
     E getEdge(int i){
         return edges[i];
@@ -308,12 +309,7 @@ std::pair<int*, int*> BellmanFord(G& g, int startVertex){
             if(odleglosc[endv.first] != INT_MAX && odleglosc[endv.first]+edge.getValue() < odleglosc[endv.second]){
                 odleglosc[endv.second] = odleglosc[endv.first]+edge.getValue();
                 poprzednik[endv.second] = endv.first;
-            }/*
-            else if(odleglosc[endv.second] != INT_MAX && odleglosc[endv.second]+edge.getValue() < odleglosc[endv.first]){
-                printf("Updating distance to vertex %d: from: %d to: %d\n", endv.first, odleglosc[endv.first], odleglosc[endv.second]+edge.getValue());
-                odleglosc[endv.first] = odleglosc[endv.second]+edge.getValue();
-                poprzednik[endv.first] = endv.second;
-            }*/
+            }
         }
     }
     return std::pair<int*, int*>(odleglosc, poprzednik);
