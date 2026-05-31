@@ -7,16 +7,26 @@
 #include <fstream>
 #include <sstream>
 #include <limits.h>
+#include <vector>
+#include <utility>
+#include <random>
+#include <thread>
+#include <mutex>
+#include <map>
+#include <condition_variable>
+
 using namespace std::chrono;
 #define tic auto start = high_resolution_clock::now();
 #define toc auto stop = high_resolution_clock::now(); auto duration = duration_cast<microseconds>(stop - start); auto time = duration.count();
 #define uint unsigned int
+
 template<typename T>
 void swap(T* a, T* b){
     T tmp = *a;
     *a = *b;
     *b = tmp;
 }
+    
 template <typename T>
 T min(T a, T b){
     if(a<b){
@@ -31,6 +41,7 @@ T max(T a, T b){
     }
     return b;
 }
+    
 template <typename T>
 T* relokuj(T* data, int old_size, int new_size){
     T *tmp = new T[new_size];
@@ -40,4 +51,3 @@ T* relokuj(T* data, int old_size, int new_size){
     delete[] data;
     return tmp;
 }
-    

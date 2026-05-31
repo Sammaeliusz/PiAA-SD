@@ -1,5 +1,4 @@
-#pragma once
-#include "universal.hpp"
+
 template<typename T>
 struct dynamic_array
 {

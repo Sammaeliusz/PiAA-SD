@@ -1,3 +1,4 @@
+
 template <typename T>
 class graph_node{
     protected:
