@@ -1,31 +1,39 @@
+#include <cfloat>
 #define czlonek_value 6
 #define ruby_value 10
 #define upgrade_value 5
 #define tree strategie_tree[state.number]
+#define MAX_DEPTH 8
 const short small_bazar[5]={2,5,9,14,20};
 const short grand_bazar[5]={3,7,12,18,25};
-std::mutex player_turn_mutex[5];
+int boty, gracze, ludzie;
+std::mutex tree_block[5];
 struct tree_node{
     uint level;
-    short pole;
+    short i_pole;
     bool path=false;
     uint parent;
     dynamic_array<std::pair<float, uint>> childrens;
 };
 dynamic_array<tree_node> strategie_tree[5];
 struct decision{
-    short pole=7;
+    short i_pole=7;
     bool logiczna=false;
     short produkt=0;
     short liczbowa=0;
 };
-decision decyzja;
 enum color{
     red,
     white,
     green, 
     cyjan,
     yellow
+};
+std::map<int, std::string> towary = {
+    {0, "Owoce"},
+    {1, "Przyprawy"},
+    {2, "Tkaniny"},
+    {3, "Pierscienie"}
 };
 std::map<int, std::string> nazwy_pol = {
     {1, "Kolodziej"},
@@ -48,8 +56,8 @@ std::map<int, std::string> nazwy_pol = {
 struct player_state{
     int money;
     short position = 7;
-    short things[4]={0};
-    bool upgrades[4]={0};
+    short things[4]={0,0,0,0};
+    bool upgrades[4]={0,0,0,0};
     short rubies=0;
     short cart_upgrades=0; 
     short workers=4;
@@ -58,19 +66,20 @@ struct player_state{
 };
 struct pole{
     short number;
-    bool player_marker[5] = {0};
-    bool player_family[5] = {0};
+    bool player_marker[5] = {0,0,0,0,0};
+    bool player[5] = {0,0,0,0,0};
+    short monety[5] = {0,0,0,0,0};
+    bool player_family[5] = {0,0,0,0,0};
     bool sprzedawca = 0;
 };
 struct plansza{
     pole pola[4][4];
     short avaliable_rubies_sultan=7;
     short avaliable_rubies_jeweler=12;
-    short post_office_state=0; //0-5
     short grand_bazar[4]={0}; 
     short small_bazar[4]={0};
-    short upgrade_cost[4]={2};
-    float sultan[4]={1};
+    short upgrade_cost[4]={2,2,2,2};
+    float sultan[4]={1,1,1,1};
     short post_state=0;
     uint move=0;
 };
@@ -90,6 +99,8 @@ const short grand_bazar_states[6][4]={
     {1,1,1,2},
     {0,0,3,2}
 };
+const short small_bazar_return[5]={2,5,9,14,20};
+const short grand_bazar_return[5]={3,7,12,18,25};
 const short post_states[5][3]={
     {0,1,2},
     {2,1,2},
@@ -100,9 +111,9 @@ const short post_states[5][3]={
 void print_board(plansza &board){
     for(short i=0; i<4; i++){
         for(short j=0; j<4; j++){
-            std::cout<<nazwy_pol[board.pola[i][j].number]<<"("<<board.pola[i][j].number<<")"<<" | ";
+            printf("%15s(%2d) %c %c %c %c %c", nazwy_pol[board.pola[i][j].number].c_str(), board.pola[i][j].number, board.pola[i][j].player[0]?'1':' ',board.pola[i][j].player[1]?'2':' ',board.pola[i][j].player[2]?'3':' ',board.pola[i][j].player[3]?'4':' ',board.pola[i][j].player[4]?'5':' ');
         }
-        std::cout<<std::endl;
+        printf("\n");
     }
 }
 void print_bazar(plansza &board, bool grand=false){
@@ -112,13 +123,16 @@ void print_bazar(plansza &board, bool grand=false){
         printf("Towary na malym bazarze: \n Owoce: %d\n przyprawy: %d\n Tkaniny: %d\n Pierscienie: %d\n", board.small_bazar[0], board.small_bazar[1], board.small_bazar[2], board.small_bazar[3]);
     }
 }
+void print_meczets(plansza &board){
+    printf("Koszt ulepszenia:\n Owoce: %d\n przyprawy: %d\n Tkaniny: %d\n Pierscienie: %d\n", board.upgrade_cost[0], board.upgrade_cost[1], board.upgrade_cost[2], board.upgrade_cost[3]);
+}
 void print_player_state(player_state &state){
     printf("Stan gracza %d:\n Pieniadze: %d\n Towary: Owoce: %d, przyprawy: %d, Tkaniny: %d, Pierscienie: %d\n Ulepszenia: Owoce: %d, przyprawy: %d, Tkaniny: %d, Pierscienie: %d\n Rubiny: %d\n Ulepszenia wozka: %d\n Pracownicy w stosie: %d\n", state.number, state.money, state.things[0], state.things[1], state.things[2], state.things[3], state.upgrades[0], state.upgrades[1], state.upgrades[2], state.upgrades[3], state.rubies, state.cart_upgrades, state.workers);
 }
-std::pair<short, short> find_pole(plansza &board, short pole){
+std::pair<short, short> find_pole(plansza &board, short i_pole){
     for(short i=0; i<4; i++){
         for(short j=0; j<4; j++){
-            if(board.pola[i][j].number == pole){
+            if(board.pola[i][j].number == i_pole){
                 return std::make_pair(i,j);
             }
         }
@@ -140,7 +154,7 @@ int distance(plansza &board, int pole1, std::pair<short, short> pole2){
     }
     return abs(p1.first-pole2.first)+abs(p1.second-pole2.second);
 }
-void make_game(plansza &board, player_state *states,short player_number){
+void make_game(plansza &board, player_state *states, short player_number){
     dynamic_array<short> *pola = new dynamic_array<short>();
     for(short i=1; i<=16; i++){
         push_back(pola, i);
@@ -186,10 +200,11 @@ void make_game(plansza &board, player_state *states,short player_number){
         states[i].player_color = static_cast<color>(pop_at(colors, rand()%colors->size));
     }
 }
-void do_action(plansza &board, player_state &player, pole &pole){
+void do_action(plansza &board, player_state &player, short i_pole, decision decyzja){
     int rzut;
     std::pair<short, short> index;
-    switch (pole.number){
+    short sprzedane_towary = 0;
+    switch (i_pole){
         case 1:
             if(player.money >= 7){
                 player.money -= 7;
@@ -218,7 +233,7 @@ void do_action(plansza &board, player_state &player, pole &pole){
             if(decyzja.logiczna){
                 player.money+=5;
             }else{
-                player.things[decyzja.produkt]= min(player.things[decyzja.produkt]+1, 2+player.cart_upgrades);;
+                player.things[decyzja.produkt]= min(player.things[decyzja.produkt]+2, 2+player.cart_upgrades);;
             }
             break;
         case 7:
@@ -255,22 +270,23 @@ void do_action(plansza &board, player_state &player, pole &pole){
         case 10:
             for(short i=0; i<4; i++){
                 if(player.things[i]>board.small_bazar[i]){
-                    player.money+=small_bazar[player.things[i]-board.small_bazar[i]];
+                   sprzedane_towary += min(player.things[i],board.small_bazar[i]);
                 }
             }
+             player.money+=small_bazar_return[sprzedane_towary];
         break;
         case 11:
             for(short i=0; i<4; i++){
                 if(player.things[i]>board.grand_bazar[i]){
-                    player.money+=grand_bazar[player.things[i]-board.grand_bazar[i]];
+                   sprzedane_towary += min(player.things[i],board.grand_bazar[i]);
                 }
             }
+             player.money+=grand_bazar_return[sprzedane_towary];
         break;
         case 12:
             index = find_pole(board, 12);
             if(board.pola[index.first][index.second].player_family[player.number]){
-                std::pair<short, short> target_pos = find_pole(board, decyzja.pole);
-                do_action(board, player, board.pola[target_pos.first][target_pos.second]);
+                do_action(board, player, decyzja.i_pole, decyzja);
             }
         break;
         case 13:
@@ -301,23 +317,25 @@ void do_action(plansza &board, player_state &player, pole &pole){
         break;
         case 14:
             if(decyzja.produkt==1){
-                if(!player.upgrades[1]&&player.things[1]>board.upgrade_cost[1]){
+                if(!player.upgrades[1]&&player.things[1]>=board.upgrade_cost[1]){
                     player.things[1]--;
                     player.upgrades[1] = 1;
                     if(player.upgrades[2]){
                         player.rubies++;
                     }
                 }else{
+                    printf("Produkt 1: %d, Upgrade: %d\n", player.things[1], player.upgrades[1]);
                     throw std::invalid_argument("Not enough products to buy upgrade or upgrade already bought");
                 }
             }else if(decyzja.produkt==2){
-                if(!player.upgrades[2]&&player.things[2]>board.upgrade_cost[2]){
+                if(!player.upgrades[2]&&player.things[2]>=board.upgrade_cost[2]){
                     player.things[2]--;
                     player.upgrades[2] = 1;
                     if(player.upgrades[1]){
                         player.rubies++;
                     }
                 }else{
+                    printf("Produkt 2: %d, Upgrade: %d\n", player.things[2], player.upgrades[2]);
                     throw std::invalid_argument("Not enough products to buy upgrade or upgrade already bought");
                 }
             }
@@ -327,23 +345,25 @@ void do_action(plansza &board, player_state &player, pole &pole){
         break;
         case 15:
             if(decyzja.produkt==0){
-                if(!player.upgrades[0]&&player.things[0]>board.upgrade_cost[0]){
+                if(!player.upgrades[0]&&player.things[0]>=board.upgrade_cost[0]){
                     player.things[0]--;
                     player.upgrades[0] = 1;
                     if(player.upgrades[3]){
                         player.rubies++;
                     }
                 }else{
+                    printf("Produkt 0: %d, Upgrade cost: %d\n", player.things[0], board.upgrade_cost[0]);
                     throw std::invalid_argument("Not enough products to buy upgrade or upgrade already bought");
                 }
             }else if(decyzja.produkt==3){
-                if(!player.upgrades[3]&&player.things[3]>board.upgrade_cost[3]){
+                if(!player.upgrades[3]&&player.things[3]>=board.upgrade_cost[3]){
                     player.things[3]--;
                     player.upgrades[3] = 1;
                     if(player.upgrades[0]){
                         player.rubies++;
                     }
                 }else{
+                    printf("Produkt 3: %d, Upgrade: %d\n", player.things[3], player.upgrades[3]);
                     throw std::invalid_argument("Not enough products to buy upgrade or upgrade already bought");
                 }
             }
@@ -362,33 +382,43 @@ void do_action(plansza &board, player_state &player, pole &pole){
             break;
         }
     }
-void move_player(plansza &board, player_state &player, pole &pole){
-    if(distance(board, player.position, pole.number)<3 && player.position != pole.number){
-        player.position = pole.number;
-        if(pole.player_marker[player.number]){
-            pole.player_marker[player.number] = 0;
+void move_player(plansza &board, player_state &player, short i_pole, decision decyzja){
+    std::pair<short, short> index = find_pole(board, player.position);
+    if(distance(board, player.position, i_pole)<3 && player.position != i_pole){
+        board.pola[index.first][index.second].player[player.number] = 0;
+        player.position = i_pole;
+        index = find_pole(board, i_pole);
+        for(short i=0; i<5; i++){
+            if(board.pola[index.first][index.second].player[i] == 1){
+                player.money -= 2;
+            }
+        }
+        board.pola[index.first][index.second].player[player.number] = 1;
+        if(board.pola[index.first][index.second].player_marker[player.number]){
+            board.pola[index.first][index.second].player_marker[player.number] = 0;
             player.workers++;
-            do_action(board, player, pole);
+            do_action(board, player, i_pole, decyzja);
         }
         else{
             if(player.workers!=0){
-                pole.player_marker[player.number] = 1;
+                board.pola[index.first][index.second].player_marker[player.number] = 1;
                 player.workers--;
-                do_action(board, player, pole);
+                do_action(board, player, i_pole, decyzja);
             }
         }
 
     }
 }
-float heu_moja(plansza &board, player_state &state, pole &pole){
+float heu_moja(plansza &board, player_state &state, short i_pole){
     float things_value[4] = {0};
     float dice;
+    short sprzedane_towary = 0;
     std::pair<short, short> index;
     for(short i=0; i<4; i++){
         things_value[i] = board.grand_bazar[i]+board.small_bazar[i]+(board.upgrade_cost[i]*state.upgrades[i])+board.sultan[i];
     }
     float money_value = state.money-(24-board.avaliable_rubies_jeweler+(3-state.cart_upgrades)*7);
-    switch(pole.number){
+    switch(i_pole){
         case 1:
             if(state.money >= 7){
                 return 7*(3-state.cart_upgrades);
@@ -396,11 +426,11 @@ float heu_moja(plansza &board, player_state &state, pole &pole){
                 return -1;
             }
         case 2:
-            return (2+state.cart_upgrades-state.things[0]);
+            return (2+state.cart_upgrades-state.things[2])*things_value[2];
         case 3:
-            return (2+state.cart_upgrades-state.things[1]);
+            return (2+state.cart_upgrades-state.things[1])*things_value[1];
         case 4:
-            return (2+state.cart_upgrades-state.things[2]);    
+            return (2+state.cart_upgrades-state.things[0])*things_value[0];            
         case 5:
             return (2+state.cart_upgrades-state.things[post_states[board.post_state][0]])*things_value[post_states[board.post_state][0]]+(2+state.cart_upgrades-state.things[post_states[board.post_state][1]])*things_value[post_states[board.post_state][1]]+post_states[board.post_state][2];
         case 6:
@@ -421,14 +451,25 @@ float heu_moja(plansza &board, player_state &state, pole &pole){
                 return 0.0277*money_value*12+0.0833*money_value*11+0.1666*money_value*10+0.2777*money_value*9+0.4166*money_value*8+0.5827*money_value*7+0.6944*money_value*6+0.7777*money_value*5+0.8611*money_value*4+0.9166*money_value*3;
         case 10:
             if((state.things[0]-board.small_bazar[0]+state.things[1]-board.small_bazar[1]+state.things[2]-board.small_bazar[2]+state.things[3]-board.small_bazar[3])>0){
-                return small_bazar[max((state.things[0]-board.small_bazar[0]+state.things[1]-board.small_bazar[1]+state.things[2]-board.small_bazar[2]+state.things[3]-board.small_bazar[3]),5)];
+                for(short i=0; i<4; i++){
+                    if(state.things[i]>board.small_bazar[i]){
+                        sprzedane_towary += min(state.things[i],board.small_bazar[i]);
+                    }
+                }
+                //printf("%d \n", sprzedane_towary);
+                return money_value*small_bazar_return[sprzedane_towary];
             }
             else{
                 return -1;
             }
         case 11:
             if((state.things[0]-board.grand_bazar[0]+state.things[1]-board.grand_bazar[1]+state.things[2]-board.grand_bazar[2]+state.things[3]-board.grand_bazar[3])>0){
-                return grand_bazar[max((state.things[0]-board.grand_bazar[0]+state.things[1]-board.grand_bazar[1]+state.things[2]-board.grand_bazar[2]+state.things[3]-board.grand_bazar[3]),5)];
+                for(short i=0; i<4; i++){
+                    if(state.things[i]>board.grand_bazar[i]){
+                       sprzedane_towary += min(state.things[i],board.grand_bazar[i]);
+                    }
+                }
+                return money_value*grand_bazar_return[sprzedane_towary];
             }
             else{
                 return -1;
@@ -449,13 +490,13 @@ float heu_moja(plansza &board, player_state &state, pole &pole){
                 return -1;
             }
         case 14:
-            if(state.things[1]>=board.upgrade_cost[1]&&!state.upgrades[1] || state.things[2]>=board.upgrade_cost[2]&&!state.upgrades[2]){
+            if((state.things[1]>=board.upgrade_cost[1]&&!state.upgrades[1]) || (state.things[2]>=board.upgrade_cost[2]&&!state.upgrades[2])){
                 return 0.5*ruby_value*(6-state.rubies)+state.upgrades[1]*upgrade_value+state.upgrades[2]*upgrade_value;
             }else{
                 return -1;
             }
         case 15:
-            if(state.things[0]>=board.upgrade_cost[0]&&!state.upgrades[0] || state.things[3]>=board.upgrade_cost[3]&&!state.upgrades[3]){
+            if((state.things[0]>=board.upgrade_cost[0]&&!state.upgrades[0]) || (state.things[3]>=board.upgrade_cost[3]&&!state.upgrades[3])){
                 return 0.5*ruby_value*(6-state.rubies)+state.upgrades[0]*upgrade_value+state.upgrades[3]*upgrade_value;
             }else{
                 return -1;
@@ -468,112 +509,456 @@ float heu_moja(plansza &board, player_state &state, pole &pole){
                 return -1;
             }
     }
+    return -1;
 }
 void begin_strategy(plansza &board, player_state &state){
+    tree_block[state.number].lock();
     tree_node wezel;
-    wezel.pole = 7;
+    wezel.i_pole = 7;
     wezel.level = 0;
     wezel.path = true;
-    tree[0]=wezel;
-    tree[0].parent = 0;
+    wezel.parent = 0;
+    push_back(&tree, wezel);
     for(short i=0; i<4; i++){
         for(short j=0; j<4; j++){
-            if(board.pola[i][j].number!=state.position && distance(board, state.position, board.pola[i][j].number)<3){
-                float wartosc = heu_moja(board, state, board.pola[i][j]);
+            if(state.position!=board.pola[i][j].number && distance(board, state.position, board.pola[i][j].number)<3){
+                float wartosc = heu_moja(board, state, board.pola[i][j].number);
                 if(wartosc>0){
                     wezel.level = 1;
-                    wezel.pole = board.pola[i][j].number;
+                    wezel.i_pole = board.pola[i][j].number;
                     wezel.parent = 0;
-                    std::pair<float, int> tmp;
+                    push_back(&tree, wezel);
+                    std::pair<float, uint> tmp;
                     tmp.first = wartosc;
-                    tmp.second = wezel.pole;
-                    push_back(tree[0].childrens, tmp);
+                    tmp.second = tree.size-1;
+                    push_back(&tree.start[0].childrens, tmp);
+                    //printf("Ilosc dzieci: %d\n", tree.start[0].childrens.size);
                 }
             }
         }
     }
+    tree_block[state.number].unlock();
 }
-void strateg(plansza &board, player_state &state, short pole){
-    bool path = true;
-    tree_node current=tree[0];
-    while(path){
-        for(int i=0; i<current.childrens.size; i++){
-            if(*current.childrens.(start+1).path){
-                current = *current.childrens.(start+1);
+uint get_last_path(player_state &state, uint node=0){
+    //uint index = 0;
+    //tree_node current = tree.start[node];
+    //for(int i=0; i<current.childrens.size; i++){
+    //    if(tree.start[current.childrens.start[i].second].path){
+    //        index = tree.start[current.childrens.start[i].second].parent;
+    //        current = tree.start[current.childrens.start[i].second];
+    //        i=-1;
+    //    }
+    //}
+    //return index;
+    uint index = node;
+
+    while (true) {
+        tree_node &current = tree.start[index];
+
+        bool found = false;
+
+        for (int i = 0; i < current.childrens.size; i++) {
+            uint child = current.childrens.start[i].second;
+
+            if (tree.start[child].path) {
+                index = child;
+                found = true;
                 break;
             }
         }
-        path=false;
-    }
-    
-    
-}
-void agent(plansza &board, player_state &player){
-    player_turn_mutex[player.number].lock();
 
+        if (!found) break;
+    }
+    return index;
 }
-void player(plansza &board, player_state &player){
-    player_turn_mutex[player.number].lock();
+float strategize_layer(plansza board, player_state state, uint node=0){
+    //printf("Strategizing layer %d\n", tree.start[node].level);
+    float avg = 0;
+    short pola = 0; 
+    bool all_bad = true;
+    if(tree.start[node].childrens.size==0){
+        for(short i=0; i<4; i++){
+            for(short j=0; j<4; j++){
+                if(board.pola[i][j].number!=state.position && distance(board, state.position, board.pola[i][j].number)<3){
+                    float wartosc = heu_moja(board, state, board.pola[i][j].number);
+                    avg+=wartosc;
+                    pola++;
+                    if(wartosc>0){
+                        all_bad = false;
+                        tree_node wezel;
+                        wezel.level = tree.start[node].level+1;
+                        wezel.i_pole = board.pola[i][j].number;
+                        wezel.parent = node;
+                        push_back(&tree, wezel);
+                        std::pair<float, uint> tmp;
+                        tmp.first = wartosc;
+                        tmp.second = tree.size-1;
+                        push_back(&tree.start[node].childrens, tmp);
+                    }
+                }
+            }
+        }
+    }else{
+        bool done;
+        for(short i=0; i<4; i++){
+            for(short j=0; j<4; j++){
+                done = false;
+                if(board.pola[i][j].number!=state.position && distance(board, state.position, board.pola[i][j].number)<3){
+                    float wartosc = heu_moja(board, state, board.pola[i][j].number);
+                    avg+=wartosc;
+                    pola++;
+                    if(wartosc>0){
+                        all_bad = false;
+                        for(int k=0; k<tree.start[node].childrens.size; k++){
+                            if(tree.start[tree.start[node].childrens.start[k].second].i_pole == board.pola[i][j].number){
+                                tree.start[node].childrens.start[k].first = wartosc;
+                                done = true;
+                                break;
+                            }
+                        }
+                        if(!done){
+                            tree_node wezel;
+                            wezel.level = tree.start[node].level+1;
+                            wezel.i_pole = board.pola[i][j].number;
+                            wezel.parent = node;
+                            push_back(&tree, wezel);
+                            std::pair<float, uint> tmp;
+                            tmp.first = wartosc;
+                            tmp.second = tree.size-1;
+                            push_back(&tree.start[node].childrens, tmp);
+                        }
+                    }
+                }
+            }
+        }
+    }
+    if(all_bad){
+        avg = -pola;
+    }
+    return pola > 0 ? avg/pola : 0.0f;
+}
+void depth_strategize(plansza board, player_state state, short depth, uint index=0){
+    float layer_avg;
+    decision decyzja;
+    player_state curr_state = state;
+    plansza curr_board = board;
+    //printf("Strategizing depth %d\n", depth);
+    if(depth == MAX_DEPTH){
+        return;
+    }
+    for(short i=0; i<tree.start[index].childrens.size; i++){
+        uint child_node = tree.start[index].childrens.start[i].second;
+        if(tree.start[child_node].i_pole == 14){            
+            if(!state.upgrades[2] && state.things[2]>=board.upgrade_cost[2]){
+                decyzja.produkt = 2;
+            }else{
+                decyzja.produkt = 1;
+            }
+        }else{
+            if(!state.upgrades[3] && state.things[3]>=board.upgrade_cost[3]){
+                decyzja.produkt = 3;
+            }else{
+                decyzja.produkt = 0;
+            }
+        }
+        if(tree.start[child_node].i_pole == 8){
+            decyzja.produkt = 0;
+        }
+        layer_avg = strategize_layer(curr_board, curr_state,  tree.start[index].childrens.start[i].second);
+        //printf("Pole %d o heurystyce: %f\n", tree.start[index].childrens.start[i].second, tree.start[index].childrens.start[i].first);
+        //print_player_state(curr_state);
+        //print_meczets(curr_board);
+        if(heu_moja(curr_board, curr_state, tree.start[child_node].i_pole) > 0){
+            //printf("%f\n", heu_moja(curr_board, curr_state, tree.start[child_node].pole));
+            //printf("%d \n", tree.start[child_node].pole.number);
+            //printf("%d \n", decyzja.produkt);
+            do_action(curr_board, curr_state, tree.start[child_node].i_pole, decyzja);
+        }
+        depth_strategize(curr_board, curr_state, depth+1, tree.start[index].childrens.start[i].second);
+        curr_state = state;
+        curr_board = board;
+        if(layer_avg>0)
+            tree.start[index].childrens.start[i].first += layer_avg/depth;
+    }
+    //printf("Rozmiar drzewa: %d\n", tree.size);
+}
+void strategize_tree(plansza board, player_state state){
+    tree_block[state.number].lock();
+    uint index = get_last_path(state);
+    depth_strategize(board, state, 1);
+    tree_block[state.number].unlock();    
+}
+float bierzaca_heu(plansza &board, player_state &state, short i_pole){
+    float heu_value = 0;
+    float things_value[4] = {0};
+    std::pair<short, short> index = find_pole(board, i_pole);
+    for(short i=0; i<4; i++){
+        things_value[i] = board.grand_bazar[i]+board.small_bazar[i]+(board.upgrade_cost[i]*state.upgrades[i])+board.sultan[i];
+    }
+    float money_value = state.money-(24-board.avaliable_rubies_jeweler+(3-state.cart_upgrades)*7);
+    if(board.pola[index.first][index.second].player_marker[state.number]){
+        heu_value += 2*((4+state.upgrades[3])-state.workers);
+    } //Chałwa wielkiemu liczydłu!! Chałwa królowi Aloizemu Algebrowi
+    if(board.pola[index.first][index.second].sprzedawca){
+        for(short i=0; i<4; i++){
+            if(things_value[i]>2*money_value){
+                heu_value += things_value[i]-2*money_value;
+            }
+        }
+    }
+    for(short i=0; i<5; i++){
+        if(board.pola[index.first][index.second].player_family[i]){
+            heu_value+=money_value*3;
+        }
+        if(board.pola[index.first][index.second].player[i]){
+            heu_value-=money_value*2;
+        }
+    }
+    return heu_value;
+}
+void agent(plansza &board, player_state &state){
+    tree_block[state.number].lock();
+    printf("Player %d gra\n", state.number);
+    int last_move = get_last_path(state);
+    std::pair<short, short> index = find_pole(board, state.position);
+    if(board.pola[index.first][index.second].monety[state.number]!=0){
+        state.money += board.pola[index.first][index.second].monety[state.number];
+        board.pola[index.first][index.second].monety[state.number] = 0;
+    }
+    uint max_strategie = 0;
+    float max_value = -FLT_MAX;
+    float things_value[4] = {0};
+    uint max_things = 0;
+    for(short i=0; i<4; i++){
+        things_value[i] = board.grand_bazar[i]+board.small_bazar[i]+(board.upgrade_cost[i]*state.upgrades[i])+board.sultan[i];
+        if(things_value[i]>things_value[max_things]){
+            max_things = i;
+        }
+    }
+    float money_value = state.money-(24-board.avaliable_rubies_jeweler+(3-state.cart_upgrades)*7);
+    for(short i=0; i<tree.start[last_move].childrens.size; i++){
+        index = find_pole(board, tree.start[tree.start[last_move].childrens.start[i].second].i_pole);
+        pole tmp_pole = board.pola[index.first][index.second];
+        short koszt = 0;
+        for(short j=0; j<5; j++){
+            koszt += 2*tmp_pole.player[j];
+        }
+        if(koszt>state.money){
+            tree.start[last_move].childrens.start[i].first = -1;
+        }else{
+            float heu_v = bierzaca_heu(board, state, tree.start[tree.start[0].childrens.start[i].second].i_pole);
+            if(heu_v>=0){
+                tree.start[last_move].childrens.start[i].first += heu_v;
+            }else{
+                tree.start[last_move].childrens.start[i].first = -1;
+            }
+        }
+    }
+    for(short i=0; i<tree.start[last_move].childrens.size; i++){
+        if(tree.start[last_move].childrens.start[i].first>max_value && heu_moja(board, state, tree.start[tree.start[last_move].childrens.start[i].second].i_pole)>0){
+            max_strategie = tree.start[last_move].childrens.start[i].second;
+            max_value = tree.start[last_move].childrens.start[i].first;
+        }
+    }
+    decision decyzja;
+    short max_pole=1;
+    switch(tree.start[max_strategie].i_pole){
+        case 6:
+            if(2*things_value[max_things]>money_value){
+                decyzja.logiczna = 0; 
+                decyzja.produkt = max_things;
+            }else{
+                decyzja.logiczna = 1; 
+            }        break;
+        case 8:
+            if(max_things < 3){
+                decyzja.produkt = max_things;
+            }else{
+                uint tmp_max = 0;
+                for(int i=0; i<3; i++){
+                    if(things_value[i]>things_value[tmp_max]){
+                        tmp_max=i;
+                    }
+                }
+                decyzja.produkt = tmp_max;
+            }
+        break;
+        case 9:
+            decyzja.liczbowa = 7+state.upgrades[2];
+        break;
+        case 12:
+            max_pole = 1;
+            max_value = -1;
+            for(short i=1; i<=16; i++){
+                if(max_value<heu_moja(board, state, i)){
+                    max_value = heu_moja(board, state, i);
+                    max_pole = i;
+                }
+            }
+            decyzja.i_pole = max_pole;
+        break; //sprawdzenie ile jabłek ma Janek
+        case 13:
+            if(state.things[0]>(int)board.sultan[0]+1){
+                decyzja.produkt = 0;
+            }else if(state.things[1]>(int)board.sultan[1]+1){
+                decyzja.produkt = 1;
+            }else if(state.things[2]>(int)board.sultan[2]+1){
+                decyzja.produkt = 2;
+            }else{
+                decyzja.produkt = 3;
+            }
+        break;
+        case 14:
+            if(!state.upgrades[2] && state.things[2]>=board.upgrade_cost[2]){
+                decyzja.produkt = 2;
+            }else{
+                decyzja.produkt = 1;
+            }
+        break;
+        case 15:
+            if(!state.upgrades[3] && state.things[3]>=board.upgrade_cost[3]){
+                decyzja.produkt = 3;
+            }else{
+                decyzja.produkt = 0;
+            }
+        break;
+    }
+    printf("Poruszam się z %d do %d \n", tree.start[last_move].i_pole, tree.start[max_strategie].i_pole);
+    //printf("Ostatni ruch: %d ma dzieci:\n", tree.start[last_move].i_pole);
+    for(int i=0; i<tree.start[last_move].childrens.size; i++){
+        printf("Wezel %d to pole %d\n", tree.start[last_move].childrens.start[i].second, tree.start[tree.start[last_move].childrens.start[i].second].i_pole);
+        if(tree.start[tree.start[last_move].childrens.start[i].second].i_pole == tree.start[max_strategie].i_pole){
+            tree.start[tree.start[last_move].childrens.start[i].second].path = true;
+        }
+    }
+    //printf("index ostateniego elementu na drodze: %d", get_last_path(state));
+    printf("Wartosc pola: %f\n", max_value);
+    move_player(board, state, tree.start[max_strategie].i_pole, decyzja);
+    tree_block[state.number].unlock();
+}
+void player(plansza &board, player_state &player, player_state *inni){
+    decision decyzja;
     print_board(board);
     print_player_state(player);
-    printf("Wybierz pole do ktorego chcesz sie ruszyc: ");
-    int choice;
-    scanf("%d", &choice);
-    std::pair<short, short> index = find_pole(board, choice);
-    if(index.first==-1){
-        printf("Nie ma takiego pola\n");
+    std::pair<short, short> index = find_pole(board, player.position);
+    if(board.pola[index.first][index.second].monety[player.number]!=0){
+        player.money += board.pola[index.first][index.second].monety[player.number];
+        board.pola[index.first][index.second].monety[player.number] = 0;
     }
-    else if(distance(board, player.position, choice)<3 && player.position != choice){
+    bool ruch_done = false;
+    int tmp_input;
+    int choice;
+    char akcja = 'p';
+    int gn;
+    while(!ruch_done){
+    printf("Co chcesz zrobić?\n Aby zobaczyc stan innego gracza wpisz g.\n Aby zobaczyc stan bazarow wpisz b.\n Aby zobaczyc stan poczty wpisz p.\n Aby zobaczyc stan meczetow wpisz m.\n  Aby wykonać ruch wpisz r.\n Twoj wybor: ");
+    scanf("%c", &akcja);
+    switch(akcja){
+        case 'g':
+            gn=0;
+            printf("Podaj numer gracza: ");
+            scanf("%d", &gn);
+            if(gn>=0 && gn<gracze){
+                print_player_state(inni[gn]);
+            }
+        break;
+        case 'b':
+            print_bazar(board);
+            print_bazar(board, true);
+        break;
+        case 'p':
+            printf("Produkt 1: %s\n Produkt 2: %s\n Pieniadze: %d\n", towary[post_states[board.post_state][0]].c_str(), towary[post_states[board.post_state][1]].c_str(), post_states[board.post_state][2]);
+        break;
+        case 'm':
+            print_meczets(board);
+        break;
+        case 'r':
+            ruch_done = true;
+        break;
+        default:
+        break;
+    }
+    }
+    ruch_done = false;
+    while(!ruch_done){
+    printf("Wybierz pole do ktorego chcesz sie ruszyc: ");
+    scanf("%d", &choice);
+    if(distance(board, player.position, choice)<3 && player.position != choice){
+        ruch_done = true;
         switch(choice){
             case 6:
                 printf("Czy chcesz pobrać towar czy monety? (0-towar, 1-monety): ");
-                scanf("%d", &decyzja.logiczna);
+                scanf("%d", &tmp_input);
+                decyzja.logiczna = (bool)tmp_input;
                 if(decyzja.logiczna){
-                    printf("Ktory towar chcesz sprzedac? (0-owoce, 1-przyprawy, 2-tkaniny, 3-pierscienie): ");
-                    scanf("%d", &decyzja.produkt);
+                    printf("Ktory towar chcesz pozyskac? (0-owoce, 1-przyprawy, 2-tkaniny, 3-pierscienie): ");
+                    scanf("%d", &tmp_input);
+                    if(tmp_input < 0 || tmp_input >3){
+                        ruch_done = false;
+                        printf("Wybrano niepoprawny towar! \n");
+                    }
+                    decyzja.produkt = (short)tmp_input;
                 }
             break;
             case 8:
                 printf("Ktory towar chcesz kupic? (0-owoce, 1-przyprawy, 2-tkaniny): ");
-                scanf("%d", &decyzja.produkt);
+                scanf("%d", &tmp_input);
+                if(tmp_input < 0 || tmp_input >2){
+                    ruch_done = false;
+                    printf("Wybrano niepoprawny towar! \n");
+                }
+                decyzja.produkt = (short)tmp_input;
             break;
             case 9:
                 printf("Na jaka kwote chcesz postawic? (3-12): ");
-                scanf("%d", &decyzja.liczbowa);
+                scanf("%d", &tmp_input);
+                if(tmp_input < 3 || tmp_input >12){
+                    ruch_done = false;
+                    printf("Wybrano niepoprawna wartosc! \n");
+                }
+                decyzja.produkt = (short)tmp_input;
             break;
             case 12:
                 printf("Na jakie pole chcesz sie przeniesc? (1-16): ");
-                scanf("%d", &decyzja.pole);
+                scanf("%d", &tmp_input);
+                if(tmp_input < 1 || tmp_input >16 || tmp_input == 12){
+                    ruch_done = false;
+                    printf("Wybrano niepoprawne pole! \n");
+                }
+                decyzja.produkt = (short)tmp_input;
             break;
             case 13:
                 printf("Ktory towar chcesz oddac? (0-owoce, 1-przyprawy, 2-tkaniny, 3-pierscienie): ");
-                scanf("%d", &decyzja.produkt);
+                scanf("%d", &tmp_input);
+                if(tmp_input < 0 || tmp_input >3){
+                        ruch_done = false;
+                        printf("Wybrano niepoprawny towar! \n");
+                }
+                decyzja.produkt = (short)tmp_input;
             break;
             case 14:
                 printf("Ktory upgrade chcesz kupic? (1-przyprawy, 2-tkaniny): ");
-                scanf("%d", &decyzja.produkt);
+                scanf("%d", &tmp_input);
+                if(tmp_input != 1 && tmp_input != 2){
+                        ruch_done = false;
+                        printf("Wybrano niepoprawny towar! \n");
+                }
+                decyzja.produkt = (short)tmp_input;
             break;
             case 15:
                 printf("Ktory upgrade chcesz kupic? (0-owoce, 3-pierscienie): ");
-                scanf("%d", &decyzja.produkt);
+                scanf("%d", &tmp_input);
+                if(tmp_input != 0 && tmp_input != 3){
+                        ruch_done = false;
+                        printf("Wybrano niepoprawny towar! \n");
+                }
+                decyzja.produkt = (short)tmp_input;
             break;
         }
-        move_player(board, player, board.pola[index.first][index.second]);
     }
     else{
         printf("Nie mozesz sie tam ruszyc\n");
     }
-    player_turn_mutex[player.number].unlock();
-}
-void game_master(short player_number){
-    for(short i=0; i<player_number; i++){
-        player_turn_mutex[i].lock();
     }
-    while(true){
-        for(short i=0; i<player_number; i++){
-            player_turn_mutex[i].unlock();
-            std::this_thread::sleep_for(std::chrono::milliseconds(500));
-            player_turn_mutex[i].lock();
-        }
-    }
+    move_player(board, player, choice, decyzja);
 }

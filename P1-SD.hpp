@@ -2,10 +2,42 @@
 template<typename T>
 struct dynamic_array
 {
-    int capacity=10;
-    int size=0;
-    T* start = new T[capacity];
+    unsigned int capacity=10;
+    unsigned int size=0;
+    T* start;
+    dynamic_array(){
+        start = new T[capacity];
+    };
+    dynamic_array(const dynamic_array& other){
+        capacity = other.capacity;
+        size = other.size;
+        start = new T[capacity];
+        for(int i=0; i<size; i++){
+            start[i] = other.start[i];
+        }
+    }
+    ~dynamic_array() {
+        delete[] start;
+    }
+    dynamic_array& operator=(const dynamic_array& other) {
+    if (this == &other) return *this;
+
+    T* new_data = new T[other.capacity];
+
+    for (unsigned int i = 0; i < other.size; i++) {
+        new_data[i] = other.start[i];
+    }
+
+    delete[] start;
+
+    start = new_data;
+    size = other.size;
+    capacity = other.capacity;
+
+    return *this;
+    }
 };
+
 template<typename T>
 void push_back(dynamic_array<T>* a, T data){
     if(a->size==a->capacity){

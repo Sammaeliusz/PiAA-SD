@@ -44,10 +44,12 @@ T max(T a, T b){
     
 template <typename T>
 T* relokuj(T* data, int old_size, int new_size){
-    T *tmp = new T[new_size];
-    for(int i=0; i<min(new_size, old_size); i++){
+    T* tmp = new T[new_size];
+
+    for(int i = 0; i < old_size && i < new_size; i++){
         tmp[i] = data[i];
     }
+
     delete[] data;
     return tmp;
 }
