@@ -1,4 +1,5 @@
 #include <cfloat>
+#include "P1-SD.hpp"
 #define czlonek_value 6
 #define ruby_value 10
 #define upgrade_value 5
@@ -16,6 +17,18 @@ struct tree_node{
     dynamic_array<std::pair<float, uint>> childrens;
 };
 dynamic_array<tree_node> strategie_tree[5];
+void print_drzewo(short index, int first_n = -1){
+    int n = strategie_tree[index].size;
+    if(first_n != -1){
+        n = first_n;
+    }
+    for(int i=0; i<n; i++){
+        printf("Wezel o indeksie %d powiazany z polem %d ma dzieci o indeksach\n", i, strategie_tree[index].start[i].i_pole);
+        for(int j=0; j<strategie_tree[index].start[i].childrens.size; j++){
+            printf("%d powiazanych z polem %d o wartosci heurystyki %f\n", strategie_tree[index].start[i].childrens.start[j].second, strategie_tree[index].start[strategie_tree[index].start[i].childrens.start[j].second].i_pole, strategie_tree[index].start[i].childrens.start[j].first);
+        }
+    }
+}
 struct decision{
     short i_pole=7;
     bool logiczna=false;
@@ -540,16 +553,6 @@ void begin_strategy(plansza &board, player_state &state){
     tree_block[state.number].unlock();
 }
 uint get_last_path(player_state &state, uint node=0){
-    //uint index = 0;
-    //tree_node current = tree.start[node];
-    //for(int i=0; i<current.childrens.size; i++){
-    //    if(tree.start[current.childrens.start[i].second].path){
-    //        index = tree.start[current.childrens.start[i].second].parent;
-    //        current = tree.start[current.childrens.start[i].second];
-    //        i=-1;
-    //    }
-    //}
-    //return index;
     uint index = node;
 
     while (true) {
@@ -569,13 +572,14 @@ uint get_last_path(player_state &state, uint node=0){
 
         if (!found) break;
     }
-    return index;
+    return tree.start[index].parent;
 }
 float strategize_layer(plansza board, player_state state, uint node=0){
     //printf("Strategizing layer %d\n", tree.start[node].level);
     float avg = 0;
     short pola = 0; 
     bool all_bad = true;
+    state.position = tree.start[node].i_pole;
     if(tree.start[node].childrens.size==0){
         for(short i=0; i<4; i++){
             for(short j=0; j<4; j++){
@@ -685,7 +689,8 @@ void depth_strategize(plansza board, player_state state, short depth, uint index
 void strategize_tree(plansza board, player_state state){
     tree_block[state.number].lock();
     uint index = get_last_path(state);
-    depth_strategize(board, state, 1);
+    printf("Ostatni wezel na sciezce ma index %u.\n", index);
+    depth_strategize(board, state, 1, index);
     tree_block[state.number].unlock();    
 }
 float bierzaca_heu(plansza &board, player_state &state, short i_pole){

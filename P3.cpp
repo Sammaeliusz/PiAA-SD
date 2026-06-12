@@ -1,8 +1,6 @@
 #include "universal.hpp"
 #include "P2.hpp"
-#include "P1-SD.hpp"
 #include "P3.hpp"
-
 
 int main(){
     srand(time(NULL));
@@ -15,7 +13,7 @@ int main(){
     make_game(board, states, gracze);
     for(short i=0; i<boty; i++){
         begin_strategy(board, states[ludzie+i]);
-        stratedzy[i] = std::thread(strategize_tree, board, states[ludzie+i]);
+        //stratedzy[i] = std::thread(strategize_tree, board, states[ludzie+i]);
     }
     bool gra = true;
     while(gra){
@@ -29,6 +27,7 @@ int main(){
             strategize_tree(board, states[ludzie+i]);
             print_board(board);
             print_player_state(states[ludzie+i]);
+            //print_drzewo(states[ludzie+i].number, 100);
             agent(board, states[ludzie+i]);
             //stratedzy[i] = std::thread(strategize_tree, board, states[ludzie+i]);
         }
