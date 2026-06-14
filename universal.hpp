@@ -16,10 +16,13 @@
 #include <condition_variable>
 
 using namespace std::chrono;
-#define tic auto start = high_resolution_clock::now();
-#define toc auto stop = high_resolution_clock::now(); auto duration = duration_cast<microseconds>(stop - start); auto time = duration.count();
+#define tic start_t = high_resolution_clock::now();
+#define toc stop_t = high_resolution_clock::now(); minelo = duration_cast<nanoseconds>(stop_t - start_t); czas = minelo.count();
 #define uint unsigned int
-
+auto start_t= high_resolution_clock::now();
+auto stop_t= high_resolution_clock::now();
+auto minelo= duration_cast<nanoseconds>(stop_t - start_t); 
+auto czas = minelo.count();
 template<typename T>
 void swap(T* a, T* b){
     T tmp = *a;
